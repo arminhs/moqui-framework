@@ -16,10 +16,12 @@ tasks.withType(JavaCompile) { options.compilerArgs << "-Xlint:unchecked" }
 tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:unchecked" }
 // tasks.withType(GroovyCompile) { options.compilerArgs << "-Xlint:deprecation" }
 
-version = '2.1.2'
+// version = '2.1.2'
 
 apply plugin: 'groovy'
-apply plugin: 'war'
+apply plugin: 'maven'
+apply plugin: "com.palantir.git-version"
+
 // to run gradle-versions-plugin use "gradle dependencyUpdates"
 apply plugin: 'com.github.ben-manes.versions'
 // uncomment to add the Error Prone compiler; not enabled by default (doesn't work on Travis CI)
@@ -31,6 +33,8 @@ buildscript {
     }
     dependencies {
         classpath 'com.github.ben-manes:gradle-versions-plugin:0.21.0'
+        classpath "com.palantir.gradle.gitversion:gradle-git-version:0.12.2"
+
         // uncomment to add the Error Prone compiler: classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.8'
     }
 }
@@ -43,15 +47,18 @@ dependencyUpdates.resolutionStrategy = { componentSelection { rules -> rules.all
 repositories {
     flatDir name: 'localLib', dirs: projectDir.absolutePath + '/lib'
     jcenter() // http://jcenter.bintray.com
+    maven { url 'https://jitpack.io' }
 }
+group = 'com.github.arminhs'
 
 sourceCompatibility = '1.8'
 targetCompatibility = '1.8'
 archivesBaseName = 'moqui'
+version gitVersion()
 
 sourceSets {
     start
-    execWar
+    // execWar
 }
 
 groovydoc {
@@ -64,8 +71,8 @@ tasks.withType(JavaCompile) { options.compilerArgs << "-proc:none" }
 tasks.withType(GroovyCompile) { options.compilerArgs << "-proc:none" }
 
 dependencies {
-    compile project(':moqui-util')
-
+    // compile project(':moqui-util')
+    compile 'com.github.arminhs:moqui-util:1.0.1'
     // Groovy
     // NOTE 2019-06-11 can't update to Groovy 2.5.7: has issue with local field reference within closure in class with CompileStatic
     compile 'org.codehaus.groovy:groovy:2.5.6' // Apache 2.0
@@ -73,6 +80,7 @@ dependencies {
     compile 'org.codehaus.groovy:groovy-json:2.5.6' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-templates:2.5.6' // Apache 2.0
     compile 'org.codehaus.groovy:groovy-xml:2.5.6' // Apache 2.0
+    compile localGroovy()
     // jansi is needed for groovydoc only, so in providedCompile (not included in war)
     compileOnly 'org.fusesource.jansi:jansi:1.18'
     // Findbugs need only during compile (used by freemarker and various moqui classes)
@@ -81,12 +89,14 @@ dependencies {
     // ========== Local (flatDir) libraries in framework/lib ==========
 
     // Bitronix Transaction Manager (the default internal tx mgr; custom build from source as 3.0.0 not yet released)
-    compile 'org.codehaus.btm:btm:3.0.0-SNAPSHOT' // Apache 2.0
+    compile 'com.github.marcus-nl.btm:btm:3.0.0-mk1' // Apache 2.0
+    // compile 'org.codehaus.btm:btm:3.0.0-SNAPSHOT' // Apache 2.0
     // Bitronix depends on javassist (as does OrientDB, etc; note included here for easier reference, not in framework/lib)
     compile 'org.javassist:javassist:3.25.0-GA' // Apache 2.0
 
     // CUPS4J - print through CUPS server
-    compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
+    compile 'com.github.kentoj:cups4j:0.6.4' // LGPL <== NOTE!
+    // compile name: 'cups4j', version: '0.6.4' // LGPL <== NOTE!
     // CUPS4J sepends on Apache HTTP Client (unfortunate, adds about 1.1MB)
     compile 'org.apache.httpcomponents:httpclient:4.5.9'
     // Apache httpclient depends on commons-codec, but an older version with a security vulnerability
@@ -128,7 +138,7 @@ dependencies {
     compile 'javax.activation:javax.activation-api:1.2.0' // CDDL 1.1
     // using websocket-api 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
     compile 'javax.websocket:javax.websocket-api:1.0'
-    providedCompile 'javax.servlet:javax.servlet-api:3.1.0'
+    // providedCompile 'javax.servlet:javax.servlet-api:3.1.0'
     // Specs not needed by default:
     // compile 'javax.resource:connector-api:1.5'
     // compile 'javax.jms:jms:1.1'
@@ -197,14 +207,14 @@ dependencies {
     // ========== executable war dependencies ==========
     // Jetty
     // NOTE: update to version 9.4.19.v20190610 results in 'URI is not hierarchical' error, they must have yet again changed their classpath logic
-    execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.18.v20190429' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.18.v20190429' // Apache 2.0
-    execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.18.v20190429' // Apache 2.0
-    execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.18.v20190429') // Apache 2.0
-    execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.18.v20190429') { // Apache 2.0
-        exclude group: 'javax.websocket' } // we have the full websocket API, including the client one causes problems
-    execWarRuntime 'javax.websocket:javax.websocket-api:1.0' // using 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
-    execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.18.v20190429') // Apache 2.0
+    // execWarRuntime 'org.eclipse.jetty:jetty-server:9.4.18.v20190429' // Apache 2.0
+    // execWarRuntime 'org.eclipse.jetty:jetty-webapp:9.4.18.v20190429' // Apache 2.0
+    // execWarRuntime 'org.eclipse.jetty:jetty-jndi:9.4.18.v20190429' // Apache 2.0
+    // execWarRuntime module('org.eclipse.jetty.websocket:javax-websocket-server-impl:9.4.18.v20190429') // Apache 2.0
+    // execWarRuntime ('org.eclipse.jetty.websocket:javax-websocket-client-impl:9.4.18.v20190429') { // Apache 2.0
+    //     exclude group: 'javax.websocket' } // we have the full websocket API, including the client one causes problems
+    // execWarRuntime 'javax.websocket:javax.websocket-api:1.0' // using 1.0, don't update to 1.1 until used in Jetty, Tomcat, etc
+    // execWarRuntime ('org.eclipse.jetty.websocket:websocket-server:9.4.18.v20190429') // Apache 2.0
     // only include this if using Endpoint and MessageHandler annotations:
     // execWarRuntime ('org.eclipse.jetty:jetty-annotations:9.4.18.v20190429') // Apache 2.0
 }
@@ -245,25 +255,25 @@ jar {
     from fileTree(dir: projectDir.absolutePath, includes: ['data/**', 'entity/**', 'screen/**', 'service/**', 'template/**']) // 'xsd/**'
 }
 
-war {
-    dependsOn jar
-    // put the war file in the parent directory, ie the moqui dir instead of the framework dir
-    destinationDir = projectDir.parentFile
-    archiveName = 'moqui.war'
-    // add MoquiInit.properties to the WEB-INF/classes dir for the deployed war mode of operation
-    from(fileTree(dir: destinationDir, includes: ['MoquiInit.properties'])) { into 'WEB-INF/classes' }
-    // this excludes the classes in sourceSets.main.output (better to have the jar file built above)
-    classpath = configurations.runtime - configurations.providedCompile
-    classpath file(jar.archivePath)
+// war {
+//     dependsOn jar
+//     // put the war file in the parent directory, ie the moqui dir instead of the framework dir
+//     destinationDir = projectDir.parentFile
+//     archiveName = 'moqui.war'
+//     // add MoquiInit.properties to the WEB-INF/classes dir for the deployed war mode of operation
+//     from(fileTree(dir: destinationDir, includes: ['MoquiInit.properties'])) { into 'WEB-INF/classes' }
+//     // this excludes the classes in sourceSets.main.output (better to have the jar file built above)
+//     classpath = configurations.runtime - configurations.providedCompile
+//     classpath file(jar.archivePath)
 
-    // put start classes and Jetty jars in the root of the war file for the executable war/jar mode of operation
-    from sourceSets.start.output
-    from(files(configurations.execWarRuntime)) { into 'execlib' }
-    // TODO some sort of config for Jetty? from file(projectDir.absolutePath + '/jetty/jetty.xml')
-    // setup the manifest for the executable war/jar mode
-    manifest { attributes 'Implementation-Title': 'Moqui Start', 'Implementation-Vendor': 'Moqui Ecosystem',
-            'Implementation-Version': version, 'Main-Class': 'MoquiStart' }
-}
+//     // put start classes and Jetty jars in the root of the war file for the executable war/jar mode of operation
+//     from sourceSets.start.output
+//     from(files(configurations.execWarRuntime)) { into 'execlib' }
+//     // TODO some sort of config for Jetty? from file(projectDir.absolutePath + '/jetty/jetty.xml')
+//     // setup the manifest for the executable war/jar mode
+//     manifest { attributes 'Implementation-Title': 'Moqui Start', 'Implementation-Vendor': 'Moqui Ecosystem',
+//             'Implementation-Version': version, 'Main-Class': 'MoquiStart' }
+// }
 
 task copyDependencies { doLast {
     delete file(projectDir.absolutePath + '/dependencies')
